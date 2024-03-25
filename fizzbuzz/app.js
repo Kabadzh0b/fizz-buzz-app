@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var NumbersFizzerBuzzer_1 = require("./NumbersFizzerBuzzer");
+var fizzBuzzFuncs_1 = require("./fizzBuzzFuncs");
+var numbers_1 = require("./numbers");
+var numbers = new numbers_1.Numbers(1, 100);
+var fizzFunc = new fizzBuzzFuncs_1.FizzFunc(function (num) { return num % 3 === 0; });
+var buzzFunc = new fizzBuzzFuncs_1.BuzzFunc(function (num) { return num % 5 === 0; });
+var fizzBuzzFunc = new fizzBuzzFuncs_1.FizzBuzzFunc(function (num) { return num % 15 === 0; });
+var funcs = [fizzBuzzFunc, fizzFunc, buzzFunc];
+var toTyper = new numbers_1.NumberToString();
+var numbersFizzerBuzzer = new NumbersFizzerBuzzer_1.NumbersFizzerBuzzer(numbers, funcs, toTyper);
+console.log(numbersFizzerBuzzer.work());
