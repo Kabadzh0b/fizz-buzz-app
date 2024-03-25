@@ -21,54 +21,75 @@ const mockFetch = async (
   return mockResponses[filePath] ?? "";
 };
 
+type FileContent = {
+  message: string;
+  timestamp: string;
+};
+
 class Parser {
   constructor() {}
-  async getContent(file: string): Promise<
-    {
-      message: string;
-      timestamp: string;
-    }[]
-  > {
-    const res = await mockFetch(file);
-    const messages = res.split("\n");
-    const content: { message: string; timestamp: string }[] = [];
-    for (let i = 0; i < messages.length; i++) {
-      const [message, timestamp] = messages[i].split(":");
-      content.push({ message, timestamp });
+  async getFileContent(file: string): Promise<FileContent[]> {
+    const fetchResponse = await mockFetch(file);
+    const messages = fetchResponse.split("\n");
+    const content: FileContent[] = [];
+
+    // decompose the function to make it more readable, added types
+    const getContentFromMessage = (message: string): FileContent => {
+      const [msg, timestamp] = message.split(":");
+      return { message: msg.trim(), timestamp: timestamp.trim() };
+    };
+
+    // for of instead of casual for loop
+    for (const message of messages) {
+      content.push(getContentFromMessage(message));
     }
     return content;
   }
-  async saveContent(
-    messages: { message: string; timestamp: string }[],
-    file: string
-  ) {
+
+  async saveContent(messages: FileContent[], fileName: string) {
     const waitGroup: Promise<any>[] = [];
     for (let i = 0; i < messages.length; i++) {
-      const promise = new Promise<void>(async (resolve) => {
+      const postingMessage = new Promise<string>(async (resolve) => {
         await new Promise<void>((resolve) =>
           setTimeout(() => resolve(), Math.random() * 5 * 1000)
         );
-        await mockFetch(file, {
-          body: JSON.stringify({
-            ...messages[i],
-            type: messages[i].message.length > 8 ? "long" : "short",
-          }),
+
+        const postBody = {
+          ...messages[i],
+          type: messages[i].message.length > 8 ? "long" : "short",
+        };
+
+        await mockFetch(fileName, {
+          body: JSON.stringify(postBody),
           method: "POST",
-        });
+        })
+          .then((result) => {
+            resolve(result);
+          })
+          .catch((error) => {
+            // I don`t quite understand what means "If parsing or writing fails - resolve gracefully, without error" so I just resolve with error message
+            resolve(`Error while saving message - ${error}`);
+            console.log(`Error while saving message - ${error}`)
+          });
+
         console.log(
-          `Saved message - ${messages[i].message} to ${file} as ${
+          `Saved message - ${messages[i].message} to ${fileName} as ${
             messages[i].message.length > 8 ? "long" : "short"
           }`
         );
       });
-      waitGroup.push(promise);
+      waitGroup.push(postingMessage);
     }
     await Promise.all(waitGroup);
   }
 }
 
+type Files = {
+  [key: string]: string;
+};
+
 const main = async () => {
-  const files = {
+  const files: Files = {
     "file1.txt": "out1.txt",
     "file2.txt": "out2.txt",
     "file3.txt": "out3.txt",
@@ -79,13 +100,17 @@ const main = async () => {
   for (const [input, output] of Object.entries(files)) {
     const promise = new Promise<void>((resolve) => {
       parser
-        .getContent(input)
+        .getFileContent(input)
         .catch((error) => {
-          console.error(`Error while getting file ${input} - ${error}`);
+          // I don`t quite understand what means "If parsing or writing fails - resolve gracefully, without error" so I just resolve with void
+          console.error(`Error while reading file ${input} - ${error}`);
+          resolve();
           return [];
         })
         .then((messages) => parser.saveContent(messages, output))
         .catch((error) => {
+          // I don`t quite understand what means "If parsing or writing fails - resolve gracefully, without error" so I just resolve with void
+          resolve();
           console.error(`Error while reading file ${input} - ${error}`);
         })
         .then(resolve);
